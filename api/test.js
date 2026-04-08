@@ -8,11 +8,10 @@ export default async function handler(req, res) {
   const cookie = process.env.ROBLOX_COOKIE; // ambil dari env variable
 
   try {
-    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace?` +
-  `assetType=Model` +
+    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/items?` +
+  `assetType=10` +
   `&keyword=${encodeURIComponent(keyword)}` +
-  `&limit=${limit}` +
-  `&pageNumber=1`;
+  `&limit=${limit}`;
 
     const response = await fetch(url, {
       headers: {
