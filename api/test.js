@@ -5,23 +5,23 @@ export default async function handler(req, res) {
 
   const keyword = (req.query.keyword || "house").trim();
   const limit = Math.min(parseInt(req.query.limit) || 30, 60);
+  const cookie = process.env.ROBLOX_COOKIE; // ambil dari env variable
 
   try {
     const url = `https://apis.roblox.com/toolbox-service/v1/marketplace?` +
-  `assetType=Model` +
-  `&keyword=${encodeURIComponent(keyword)}` +
-  `&limit=${limit}`;
+      `assetType=Model` +
+      `&keyword=${encodeURIComponent(keyword)}` +
+      `&limit=${limit}`;
 
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'RobloxStudio/WinInet',
         'Accept': 'application/json',
-        'Roblox-Session-Id': '00000000-0000-0000-0000-000000000000',
+        'Cookie': `.ROBLOSECURITY=${cookie}`, // ← ini yang penting
       },
     });
 
     const text = await response.text();
-    console.log(`Status: ${response.status}, Body: ${text}`);
 
     if (!response.ok) {
       return res.status(response.status).json({ 
