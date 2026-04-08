@@ -1,19 +1,33 @@
-eexport default async function handler(req, res) {
+export default async function handler(req, res) {
     try {
         const keyword = req.query.keyword || "house";
         const limit = req.query.limit || 10;
 
         const url = `https://apis.roblox.com/toolbox-service/v1/search?keyword=${keyword}&limit=${limit}`;
 
-        const response = await fetch(url, {
-            headers: {
-                "User-Agent": "Roblox-Toolbox"
-            }
-        });
+        const response = await fetch(url);
 
-        const data = await response.json();
+        // 🔥 cek status dulu
+        if (!response.ok) {
+            return res.status(500).json({
+                error: "API Roblox gagal",
+                status: response.status
+            });
+        }
 
-        // rapihin data biar gampang dipakai di Roblox
+        const text = await response.text();
+
+        // 🔥 amankan parse JSON
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            return res.status(500).json({
+                error: "Response bukan JSON",
+                raw: text.slice(0, 200)
+            });
+        }
+
         const result = (data.data || []).map(item => ({
             id: item.id,
             name: item.name
@@ -23,7 +37,7 @@ eexport default async function handler(req, res) {
 
     } catch (err) {
         res.status(500).json({
-            error: "Gagal fetch API",
+            error: "Server crash",
             detail: err.toString()
         });
     }
