@@ -3,64 +3,55 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const keyword = (req.query.keyword || "simple house").trim();
-  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
-  const category = req.query.category || "Model";
+  const keyword = (req.query.keyword || "house").trim();
+  const limit = Math.min(parseInt(req.query.limit) || 30, 60); // max aman 60
 
-  const apiKey = process.env.ROBLOX_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'API Key belum diatur' });
-  }
+  const apiKey = process.env.ROBLOX_API_KEY; // masih dipakai kalau mau mix dengan download nanti
 
   try {
-    const url = `https://apis.roblox.com/toolbox-service/v2/assets:search?` +
-      `keyword=${encodeURIComponent(keyword)}` +
-      `&searchCategoryType=${encodeURIComponent(category)}` +
-      `&limit=${limit}`;
+    console.log(`Search Catalog: keyword="${keyword}", limit=${limit}`);
 
-    console.log(`Search URL: ${url}`);
+    // Catalog API public (v2) - paling stabil untuk search asset
+    const url = `https://catalog.roblox.com/v2/search/items/details?` +
+      `keyword=${encodeURIComponent(keyword)}` +
+      `&limit=${limit}` +
+      `&categoryFilter=CommunityCreations`;   // ini yang penting biar dapet model rumah dll
 
     const response = await fetch(url, {
       headers: {
-        'x-api-key': apiKey,
         'User-Agent': 'RobloxAssetProxy/1.0',
       },
     });
 
-    console.log(`Roblox response status: ${response.status}`);
-
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      console.error(`Error body: ${errText}`);
-      return res.status(response.status).json({ 
-        error: `Roblox search gagal (${response.status})`,
-        detail: errText 
-      });
+      console.error(`Catalog API error ${response.status}: ${errText}`);
+      return res.status(response.status).json({ error: `Catalog error (${response.status})` });
     }
 
     const data = await response.json();
-    console.log(`Raw data keys:`, Object.keys(data));
+    const resultsRaw = data.data || [];
 
-    const resultsRaw = data.data || data.results || data.assets || [];
-    console.log(`Jumlah hasil raw: ${resultsRaw.length}`);
+    console.log(`Ditemukan ${resultsRaw.length} asset`);
 
+    // Rapihkan data + tambah thumbnail URL (ukuran sedang)
     const results = resultsRaw.map(item => ({
-      id: item.id || item.assetId,
-      name: item.name || "No Name",
-      type: item.assetType || category,
+      id: item.id,
+      name: item.name || "Untitled",
+      type: item.assetType || "Model",
       creator: item.creator?.name || "Unknown",
-      thumbnail: item.thumbnailUrl || null
+      thumbnail: `https://thumbnails.roblox.com/v1/assets?assetIds=${item.id}&returnPolicy=PlaceHolder&size=150x150&format=Png`,
+      created: item.created || null
     }));
 
     res.status(200).json({
       success: true,
       total: results.length,
       keyword: keyword,
-      category: category,
       results: results,
       note: results.length === 0 
-        ? "Search Roblox sering kosong via proxy. Coba keyword sangat spesifik (contoh: modern small house, wooden cabin) atau gunakan endpoint download langsung." 
-        : ""
+        ? "Coba keyword lebih spesifik (modern house, small house, furniture, building, car, etc)" 
+        : "Data siap dipakai di Studio Lite"
     });
 
   } catch (err) {
