@@ -3,26 +3,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const keyword = (req.query.keyword || "house").trim();
-  let limit = parseInt(req.query.limit) || 10;
-  if (limit > 50) limit = 50; // Roblox biasanya batasi max ~50
-
+  const keyword = (req.query.keyword || "simple house").trim();
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
   const category = req.query.category || "Model";
 
   const apiKey = process.env.ROBLOX_API_KEY;
-
   if (!apiKey) {
-    console.error('ROBLOX_API_KEY belum diatur');
-    return res.status(500).json({ error: 'API Key belum diatur di Vercel' });
+    return res.status(500).json({ error: 'ROBLOX_API_KEY belum diatur di Vercel' });
   }
 
   try {
-    console.log(`Search request: keyword="${keyword}", category="${category}", limit=${limit}`);
-
-    const url = `https://apis.roblox.com/toolbox-service/v2/assets:search?` +
-      `keyword=${encodeURIComponent(keyword)}` +
-      `&searchCategoryType=${encodeURIComponent(category)}` +
-      `&limit=${limit}`;
+    const url = `https://apis.roblox.com/toolbox-service/v2/assets:search?keyword=${encodeURIComponent(keyword)}&searchCategoryType=${encodeURIComponent(category)}&limit=${limit}`;
 
     const response = await fetch(url, {
       headers: {
@@ -32,44 +23,33 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      console.error(`Roblox API Error ${response.status}: ${errorText}`);
-      return res.status(response.status).json({
-        error: `Roblox API error (${response.status})`,
-        detail: errorText
-      });
+      const errText = await response.text().catch(() => '');
+      console.error(`Search failed ${response.status}: ${errText}`);
+      return res.status(response.status).json({ error: `Roblox error ${response.status}` });
     }
 
     const data = await response.json();
-
-    // Ambil hasil dari berbagai kemungkinan struktur response
-    const resultsRaw = data.data || data.results || data.assets || [];
+    const resultsRaw = data.data || data.results || [];
 
     const results = resultsRaw.map(item => ({
       id: item.id || item.assetId,
-      name: item.name || "Untitled",
-      type: item.assetType || item.assetTypeDisplayName || category,
-      creator: item.creator?.name || item.creatorName || "Unknown",
-      thumbnail: item.thumbnailUrl || item.imageUrl || null,
-      description: item.description || null
+      name: item.name || "No Name",
+      type: item.assetType || category,
+      creator: item.creator?.name || "Unknown",
+      thumbnail: item.thumbnailUrl || null
     }));
-
-    console.log(`Found ${results.length} results for "${keyword}"`);
 
     res.status(200).json({
       success: true,
       total: results.length,
-      keyword: keyword,
-      category: category,
-      results: results,
-      note: results.length === 0 ? "Coba keyword lebih spesifik atau ganti category" : null
+      keyword,
+      category,
+      results,
+      note: results.length === 0 ? "Coba keyword lebih spesifik seperti: modern house, small house, building, furniture" : ""
     });
 
   } catch (err) {
-    console.error('Proxy error:', err.message);
-    res.status(500).json({
-      error: "Gagal fetch dari Roblox",
-      detail: err.toString()
-    });
+    console.error(err);
+    res.status(500).json({ error: "Server error", detail: err.message });
   }
 }
