@@ -1,44 +1,51 @@
-export default async function handler(req, res) {
-    try {
-        const keyword = req.query.keyword || "house";
-        const limit = req.query.limit || 10;
+import { NextRequest, NextResponse } from 'next/server';
 
-        const url = `https://apis.roblox.com/toolbox-service/v1/search?keyword=${keyword}&limit=${limit}`;
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const assetId = params.id;
+  const apiKey = process.env.ROBLOX_API_KEY;
 
-        const response = await fetch(url);
+  if (!assetId || !apiKey) {
+    return NextResponse.json({ error: 'Asset ID atau API Key kosong' }, { status: 400 });
+  }
 
-        // 🔥 cek status dulu
-        if (!response.ok) {
-            return res.status(500).json({
-                error: "API Roblox gagal",
-                status: response.status
-            });
-        }
+  try {
+    // Step 1: Ambil location URL
+    const metaRes = await fetch(`https://apis.roblox.com/asset-delivery-api/v1/assetId/${assetId}`, {
+      headers: {
+        'x-api-key': apiKey,
+      },
+    });
 
-        const text = await response.text();
-
-        // 🔥 amankan parse JSON
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            return res.status(500).json({
-                error: "Response bukan JSON",
-                raw: text.slice(0, 200)
-            });
-        }
-
-        const result = (data.data || []).map(item => ({
-            id: item.id,
-            name: item.name
-        }));
-
-        res.status(200).json(result);
-
-    } catch (err) {
-        res.status(500).json({
-            error: "Server crash",
-            detail: err.toString()
-        });
+    if (!metaRes.ok) {
+      return NextResponse.json({ error: 'Gagal ambil meta data', status: metaRes.status }, { status: metaRes.status });
     }
+
+    const metaData = await metaRes.json();
+    const location = metaData.location;
+
+    if (!location) {
+      return NextResponse.json({ error: 'Location tidak ditemukan' }, { status: 500 });
+    }
+
+    // Step 2: Download binary asset
+    const assetRes = await fetch(location);
+    if (!assetRes.ok) {
+      return NextResponse.json({ error: 'Gagal download asset' }, { status: 500 });
+    }
+
+    const buffer = await assetRes.arrayBuffer();
+
+    // Return binary + header biar client bisa download/stream
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': assetRes.headers.get('content-type') || 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="asset-${assetId}.rbxm"`,
+        'Access-Control-Allow-Origin': '*',        // biar CORS aman dari frontend
+        'Access-Control-Allow-Methods': 'GET',
+      },
+    });
+  } catch (error: any) {
+    console.error(error);
+    return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 });
+  }
 }
