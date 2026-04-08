@@ -1,51 +1,70 @@
-import { NextRequest, NextResponse } from 'next/server';
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const assetId = params.id;
+  const keyword = req.query.keyword || "house";
+  const limit = parseInt(req.query.limit) || 10;
+  const category = req.query.category || "Model";   // Model, Audio, Decal, Mesh, dll
+
   const apiKey = process.env.ROBLOX_API_KEY;
 
-  if (!assetId || !apiKey) {
-    return NextResponse.json({ error: 'Asset ID atau API Key kosong' }, { status: 400 });
+  if (!apiKey) {
+    console.error('ROBLOX_API_KEY belum diatur di Vercel');
+    return res.status(500).json({ 
+      error: 'Server error: API Key belum diatur di Vercel' 
+    });
   }
 
   try {
-    // Step 1: Ambil location URL
-    const metaRes = await fetch(`https://apis.roblox.com/asset-delivery-api/v1/assetId/${assetId}`, {
+    console.log(`Search keyword: ${keyword} | category: ${category} | limit: ${limit}`);
+
+    // Endpoint baru Roblox 2026 (Toolbox v2)
+    const url = `https://apis.roblox.com/toolbox-service/v2/assets:search?` +
+      `keyword=${encodeURIComponent(keyword)}` +
+      `&limit=${limit}` +
+      `&searchCategoryType=${category}`;
+
+    const response = await fetch(url, {
       headers: {
         'x-api-key': apiKey,
+        'User-Agent': 'RobloxAssetProxy/1.0',
       },
     });
 
-    if (!metaRes.ok) {
-      return NextResponse.json({ error: 'Gagal ambil meta data', status: metaRes.status }, { status: metaRes.status });
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      console.error(`Search API error ${response.status}: ${errorText}`);
+      return res.status(response.status).json({ 
+        error: `Gagal mengambil data dari Roblox (${response.status})`,
+        detail: errorText 
+      });
     }
 
-    const metaData = await metaRes.json();
-    const location = metaData.location;
+    const data = await response.json();
 
-    if (!location) {
-      return NextResponse.json({ error: 'Location tidak ditemukan' }, { status: 500 });
-    }
+    // Rapihkan hasil supaya mudah dipakai di Roblox Studio / game kamu
+    const result = (data.data || data.results || []).map(item => ({
+      id: item.id || item.assetId,
+      name: item.name,
+      type: item.assetType || item.assetTypeDisplayName,
+      creator: item.creator?.name || "Unknown",
+      thumbnail: item.thumbnailUrl || null
+    }));
 
-    // Step 2: Download binary asset
-    const assetRes = await fetch(location);
-    if (!assetRes.ok) {
-      return NextResponse.json({ error: 'Gagal download asset' }, { status: 500 });
-    }
-
-    const buffer = await assetRes.arrayBuffer();
-
-    // Return binary + header biar client bisa download/stream
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': assetRes.headers.get('content-type') || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="asset-${assetId}.rbxm"`,
-        'Access-Control-Allow-Origin': '*',        // biar CORS aman dari frontend
-        'Access-Control-Allow-Methods': 'GET',
-      },
+    res.status(200).json({
+      success: true,
+      total: result.length,
+      keyword: keyword,
+      category: category,
+      results: result
     });
-  } catch (error: any) {
-    console.error(error);
-    return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 });
+
+  } catch (err) {
+    console.error('Proxy search error:', err.message);
+    res.status(500).json({
+      error: "Gagal fetch API Roblox",
+      detail: err.toString()
+    });
   }
 }
