@@ -9,9 +9,10 @@ export default async function handler(req, res) {
 
   try {
     const url = `https://apis.roblox.com/toolbox-service/v1/marketplace?` +
-      `assetType=Model` +
-      `&keyword=${encodeURIComponent(keyword)}` +
-      `&limit=${limit}`;
+  `assetType=Model` +
+  `&keyword=${encodeURIComponent(keyword)}` +
+  `&limit=${limit}` +
+  `&pageNumber=1`;
 
     const response = await fetch(url, {
       headers: {
