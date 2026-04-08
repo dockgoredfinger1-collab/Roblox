@@ -9,11 +9,16 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ROBLOX_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ROBLOX_API_KEY belum diatur di Vercel' });
+    return res.status(500).json({ error: 'API Key belum diatur' });
   }
 
   try {
-    const url = `https://apis.roblox.com/toolbox-service/v2/assets:search?keyword=${encodeURIComponent(keyword)}&searchCategoryType=${encodeURIComponent(category)}&limit=${limit}`;
+    const url = `https://apis.roblox.com/toolbox-service/v2/assets:search?` +
+      `keyword=${encodeURIComponent(keyword)}` +
+      `&searchCategoryType=${encodeURIComponent(category)}` +
+      `&limit=${limit}`;
+
+    console.log(`Search URL: ${url}`);
 
     const response = await fetch(url, {
       headers: {
@@ -22,14 +27,22 @@ export default async function handler(req, res) {
       },
     });
 
+    console.log(`Roblox response status: ${response.status}`);
+
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      console.error(`Search failed ${response.status}: ${errText}`);
-      return res.status(response.status).json({ error: `Roblox error ${response.status}` });
+      console.error(`Error body: ${errText}`);
+      return res.status(response.status).json({ 
+        error: `Roblox search gagal (${response.status})`,
+        detail: errText 
+      });
     }
 
     const data = await response.json();
-    const resultsRaw = data.data || data.results || [];
+    console.log(`Raw data keys:`, Object.keys(data));
+
+    const resultsRaw = data.data || data.results || data.assets || [];
+    console.log(`Jumlah hasil raw: ${resultsRaw.length}`);
 
     const results = resultsRaw.map(item => ({
       id: item.id || item.assetId,
@@ -42,14 +55,16 @@ export default async function handler(req, res) {
     res.status(200).json({
       success: true,
       total: results.length,
-      keyword,
-      category,
-      results,
-      note: results.length === 0 ? "Coba keyword lebih spesifik seperti: modern house, small house, building, furniture" : ""
+      keyword: keyword,
+      category: category,
+      results: results,
+      note: results.length === 0 
+        ? "Search Roblox sering kosong via proxy. Coba keyword sangat spesifik (contoh: modern small house, wooden cabin) atau gunakan endpoint download langsung." 
+        : ""
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error", detail: err.message });
+    console.error('Search proxy error:', err.message);
+    res.status(500).json({ error: 'Server error', detail: err.message });
   }
 }
