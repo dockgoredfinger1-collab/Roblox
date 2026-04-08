@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   try {
     const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/items?` +
-  `assetType=10` +
+  `assetType=model` +
   `&keyword=${encodeURIComponent(keyword)}` +
   `&limit=${limit}`;
 
