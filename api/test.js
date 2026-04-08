@@ -11,10 +11,9 @@ export default async function handler(req, res) {
     console.log(`Toolbox Search: keyword="${keyword}", limit=${limit}`);
 
     const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/items?` +
-      `assetType=Model` +
-      `&keyword=${encodeURIComponent(keyword)}` +
-      `&limit=${limit}` +
-      `&sortOrder=Relevance`;
+  `assetType=Model` +
+  `&keyword=${encodeURIComponent(keyword)}` +
+  `&limit=${limit}`;
 
     const response = await fetch(url, {
       headers: {
