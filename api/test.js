@@ -5,52 +5,46 @@ export default async function handler(req, res) {
 
   const keyword = (req.query.keyword || "house").trim();
   const limit = Math.min(parseInt(req.query.limit) || 30, 60);
-  const cookie = process.env.ROBLOX_COOKIE; // .ROBLOSECURITY kamu
 
   try {
-    console.log(`Toolbox Search: keyword="${keyword}", limit=${limit}`);
-
-    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/items?` +
-  `assetType=Model` +
-  `&keyword=${encodeURIComponent(keyword)}` +
-  `&limit=${limit}`;
+    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/items?assetType=Model&keyword=${encodeURIComponent(keyword)}&limit=${limit}`;
 
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'RobloxStudio/WinInet',
-        'Cookie': `.ROBLOSECURITY=${cookie}`,
         'Accept': 'application/json',
+        'Roblox-Session-Id': '00000000-0000-0000-0000-000000000000',
       },
     });
 
+    const text = await response.text();
+    console.log(`Status: ${response.status}, Body: ${text}`);
+
     if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.error(`Toolbox API error ${response.status}: ${errText}`);
-      return res.status(response.status).json({ error: `Toolbox error (${response.status})` });
+      return res.status(response.status).json({ 
+        error: `Toolbox error (${response.status})`,
+        detail: text
+      });
     }
 
-    const data = await response.json();
+    const data = JSON.parse(text);
     const resultsRaw = data.data || [];
-
-    console.log(`Ditemukan ${resultsRaw.length} model`);
 
     const results = resultsRaw.map(item => ({
       id: item.asset?.id || item.id,
       name: item.asset?.name || item.name || "Untitled",
-      type: "Model",
-      creator: item.asset?.creatorName || item.creator?.name || "Unknown",
+      creator: item.asset?.creatorName || "Unknown",
       thumbnail: `https://thumbnails.roblox.com/v1/assets?assetIds=${item.asset?.id || item.id}&returnPolicy=PlaceHolder&size=150x150&format=Png`,
     }));
 
     res.status(200).json({
       success: true,
       total: results.length,
-      keyword: keyword,
-      results: results,
+      keyword,
+      results,
     });
 
   } catch (err) {
-    console.error('Toolbox proxy error:', err.message);
     res.status(500).json({ error: 'Server error', detail: err.message });
   }
 }
