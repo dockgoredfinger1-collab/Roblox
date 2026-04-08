@@ -7,7 +7,10 @@ export default async function handler(req, res) {
   const limit = Math.min(parseInt(req.query.limit) || 30, 60);
 
   try {
-    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/items?assetType=Model&keyword=${encodeURIComponent(keyword)}&limit=${limit}`;
+    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace?` +
+  `assetType=Model` +
+  `&keyword=${encodeURIComponent(keyword)}` +
+  `&limit=${limit}`;
 
     const response = await fetch(url, {
       headers: {
