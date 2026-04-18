@@ -32,6 +32,8 @@ export default async function handler(req, res) {
     const data = JSON.parse(text);
     const resultsRaw = data.data || [];
 
+    console.log("RAW ITEM 0:", JSON.stringify(resultsRaw[0], null, 2));
+    
     const results = resultsRaw.map(item => ({
       id: item.asset?.id || item.id,
       name: item.asset?.name || item.asset?.Name || item.name || item.Name || "Unknown",
