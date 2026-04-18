@@ -2,17 +2,14 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
   const keyword = (req.query.keyword || "house").trim();
   const limit = Math.min(parseInt(req.query.limit) || 30, 60);
   const cookie = process.env.ROBLOX_COOKIE;
 
   try {
-    // 1. Fetch dari Toolbox API
-    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace?` +
-      `assetType=Model&keyword=${encodeURIComponent(keyword)}&limit=${limit}`;
-
-    const response = await fetch(url, {
+    // Step 1: Ambil list ID dari toolbox
+    const searchUrl = `https://apis.roblox.com/toolbox-service/v1/models?keyword=${encodeURIComponent(keyword)}&limit=${limit}`;
+    const searchRes = await fetch(searchUrl, {
       headers: {
         'User-Agent': 'RobloxStudio/WinInet',
         'Accept': 'application/json',
@@ -20,39 +17,41 @@ export default async function handler(req, res) {
       },
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: `Toolbox error (${response.status})`, detail: text });
+    const searchData = await searchRes.json();
+    const ids = (searchData.data || []).map(item => item.id).filter(Boolean);
+
+    if (ids.length === 0) {
+      return res.status(200).json({ success: true, total: 0, keyword, results: [] });
     }
 
-    const data = await response.json();
-    const raw = data.data || [];
+    // Step 2: Fetch nama + thumbnail sekaligus pakai batch endpoint
+    const detailUrl = `https://catalog.roblox.com/v1/catalog/items/details`;
+    const detailRes = await fetch(detailUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Cookie': `.ROBLOSECURITY=${cookie}`,
+      },
+      body: JSON.stringify({
+        items: ids.map(id => ({ itemType: "Asset", id }))
+      }),
+    });
 
-    if (raw.length === 0) {
-      return res.status(200).json({ success: true, total: 0, results: [] });
+    const detailData = await detailRes.json();
+    const detailMap = {};
+    for (const item of (detailData.data || [])) {
+      detailMap[item.id] = item;
     }
 
-    // 2. Kumpulkan semua asset ID
-    const ids = raw.map(item => item.asset?.id || item.id).filter(Boolean);
-
-    // 3. Fetch thumbnail batch dari Roblox
-    const thumbRes = await fetch(
-      `https://thumbnails.roblox.com/v1/assets?assetIds=${ids.join(",")}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false`
-    );
-    const thumbData = thumbRes.ok ? await thumbRes.json() : { data: [] };
-    const thumbMap = {};
-    for (const t of (thumbData.data || [])) {
-      thumbMap[t.targetId] = t.imageUrl;
-    }
-
-    // 4. Gabungkan data
-    const results = raw.map(item => {
-      const id = item.asset?.id || item.id;
+    // Step 3: Gabungkan hasil
+    const results = ids.map(id => {
+      const detail = detailMap[id] || {};
       return {
-        id: id,
-        name: item.asset?.name || item.name || "Unknown",
-        creator: item.asset?.creatorName || "Unknown",
-        thumbnail: thumbMap[id] || `https://www.roblox.com/asset-thumbnail/image?assetId=${id}&width=150&height=150&format=png`,
+        id,
+        name: detail.name || "Unknown",
+        creator: detail.creatorName || "Unknown",
+        thumbnail: `https://thumbnails.roblox.com/v1/assets?assetIds=${id}&returnPolicy=PlaceHolder&size=150x150&format=Png`,
       };
     });
 
