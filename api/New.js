@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const cookie = process.env.ROBLOX_COOKIE; // ambil dari env variable
 
   try {
-    const url = `https://apis.roblox.com/toolbox-service/v1/models?` +
+    const url = `https://apis.roblox.com/toolbox-service/v1/marketplace?assetType=Model&keyword=?` +
   `keyword=${encodeURIComponent(keyword)}` +
   `&limit=${limit}`;
     
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
     const data = JSON.parse(text);
     const resultsRaw = data.data || [];
-    
+
     const results = resultsRaw.map(item => ({
       id: item.asset?.id || item.id,
       name: item.asset?.name || item.asset?.Name || item.name || item.Name || item.title || item.Title || "Unknown",
