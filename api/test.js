@@ -33,7 +33,6 @@ export default async function handler(req, res) {
     const resultsRaw = data.data || [];
 
     const results = resultsRaw.map(item => ({
-      console.log(item)
       id: item.asset?.id || item.id,
       name: item.asset?.name || item.asset?.Name || item.name || item.Name || item.title || item.Title || "Unknown",
       creator: item.asset?.creatorName || "Unknown",
