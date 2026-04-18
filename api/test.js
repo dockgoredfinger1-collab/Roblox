@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
     const results = resultsRaw.map(item => ({
       id: item.asset?.id || item.id,
-      name: item.asset?.name || item.name || "Untitled",
+      name: item.asset?.name || item.asset?.Name || item.name || item.Name || "Unknown",
       creator: item.asset?.creatorName || "Unknown",
       thumbnail: `https://thumbnails.roblox.com/v1/assets?assetIds=${item.asset?.id || item.id}&returnPolicy=PlaceHolder&size=150x150&format=Png`,
     }));
