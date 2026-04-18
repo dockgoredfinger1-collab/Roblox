@@ -32,14 +32,8 @@ export default async function handler(req, res) {
     const data = JSON.parse(text);
     const resultsRaw = data.data || [];
 
-    // Ganti sementara res.status(200).json({ ... }) jadi ini
-res.status(200).json({
-    success: true,
-    debug_raw: resultsRaw[0], // ← lihat struktur aslinya
-    results,
-});
-    
     const results = resultsRaw.map(item => ({
+      console.log(item)
       id: item.asset?.id || item.id,
       name: item.asset?.name || item.asset?.Name || item.name || item.Name || item.title || item.Title || "Unknown",
       creator: item.asset?.creatorName || "Unknown",
